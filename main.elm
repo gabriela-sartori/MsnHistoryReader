@@ -39,8 +39,9 @@ update_messages model =
 decodeMsn : Decoder (List Message)
 decodeMsn =
     let
-        custom_text = object2 CustomText ( "_Style" := string )
-                                         ( "__text" := string )
+        custom_text = object2 (\s t -> CustomText s (Maybe.withDefault "" t))
+                                         ( "_Style" := string )
+                                         ( maybe <| "__text" := string )
         message     = object5 Message ( at ["From", "User", "_FriendlyName"] string )
                                       ( at ["To",   "User", "_FriendlyName"] string )
                                       ( "Text"  := custom_text )
