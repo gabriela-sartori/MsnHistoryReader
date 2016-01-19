@@ -10,7 +10,7 @@ import VirtualDom      exposing (property)
 
 type Action = ActNope | ActUpdateJson String | ActUpdateChk1 Bool | ActUpdateChk2 Bool
 type alias CustomText = { style : String, text : String }
-type alias Message    = { from : String, to : String, text : CustomText }
+type alias Message    = { from : String, to : String, text : CustomText, date : String, time : String }
 type alias Model      = { messages                  : List Message
                         , json                      : String
                         , ignore_msn_plus_name_tags : Bool
@@ -33,17 +33,19 @@ update_messages model =
     { model |
         messages = decodeString decodeMsn model.json
                 |> Result.toMaybe
-                |> Maybe.withDefault [ Message "Erro" "ErroTo" (CustomText "" "Error parsing the json :(") ]
+                |> Maybe.withDefault [ Message "Erro" "ErroTo" (CustomText "" "Error parsing the json :(") "" "" ]
     }
 
 decodeMsn : Decoder (List Message)
 decodeMsn =
     let
-        custom_text = object2 CustomText ( at ["_Style"] string )
-                                         ( at ["__text"] string )
-        message     = object3 Message ( at ["From", "User", "_FriendlyName"] string )
+        custom_text = object2 CustomText ( "_Style" := string )
+                                         ( "__text" := string )
+        message     = object5 Message ( at ["From", "User", "_FriendlyName"] string )
                                       ( at ["To",   "User", "_FriendlyName"] string )
-                                      ( at ["Text"] custom_text )
+                                      ( "Text"  := custom_text )
+                                      ( "_Date" := string )
+                                      ( "_Time" := string )
     in
         at ["Log", "Message"] (Json.Decode.list message)
 
@@ -63,6 +65,7 @@ remove_tags str =
 msg_to_div : Bool -> Bool -> Message -> Html
 msg_to_div remove_tag remove_font msg =
     div [] [ b [] [ text ((if remove_tag then remove_tags else identity) msg.from) ]
+           , text <| "  (" ++ msg.date ++ " - " ++ msg.time ++ ")"
            , br [] []
            , if not remove_font then
                  span [ Html.Attributes.property "style" (Json.Encode.string msg.text.style) ] [ text msg.text.text ]
@@ -72,7 +75,7 @@ msg_to_div remove_tag remove_font msg =
 
 view : Signal.Address Action -> Model -> Html
 view address model =
-    div [] ([ text "Informe aqui o json:"
+    div [] ([ text "The original format is XML. Convert to JSON and paste here:"
             , br [] []
             , textarea [ rows 10, cols 50, on "input" targetValue (ActUpdateJson >> Signal.message address) ] [ text model.json ]
             , br [] []
