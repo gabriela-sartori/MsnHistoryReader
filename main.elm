@@ -1,12 +1,11 @@
 import Html            exposing (..)
+import Html.App        
 import Html.Attributes exposing (..)
 import Html.Events     exposing (..)
-import Signal          exposing (..)
 import Json.Decode     exposing (..)
 import Json.Encode
 import Result          exposing (..)
 import String          exposing (cons, uncons, fromList)
-import VirtualDom      exposing (property)
 
 type Action = ActNope | ActUpdateJson String | ActUpdateChk1 Bool | ActUpdateChk2 Bool
 type alias CustomText = { style : String, text : String }
@@ -17,16 +16,13 @@ type alias Model      = { messages                  : List Message
                         , remove_text_font          : Bool
                         }
 
-initialModel : Model
-initialModel = Model [] ":D" True False
-
-update : Action -> Model -> Model
+update : Action -> Model -> (Model, Cmd Action)
 update action model =
     case action of
-        ActNope -> model
-        ActUpdateJson str -> { model | json = str }
-        ActUpdateChk1 b -> { model | ignore_msn_plus_name_tags = b }
-        ActUpdateChk2 b -> { model | remove_text_font = b }
+        ActNope -> model ! []
+        ActUpdateJson str -> update_messages { model | json = str } ! []
+        ActUpdateChk1 b   -> { model | ignore_msn_plus_name_tags = b } ! []
+        ActUpdateChk2 b   -> { model | remove_text_font = b } ! []
         
 update_messages : Model -> Model
 update_messages model =
@@ -63,7 +59,7 @@ remove_tags str =
     in
         removeTags' str True
 
-msg_to_div : Bool -> Bool -> Message -> Html
+msg_to_div : Bool -> Bool -> Message -> Html Action
 msg_to_div remove_tag remove_font msg =
     div [] [ b [] [ text ((if remove_tag then remove_tags else identity) msg.from) ]
            , text <| "  (" ++ msg.date ++ " - " ++ msg.time ++ ")"
@@ -74,20 +70,20 @@ msg_to_div remove_tag remove_font msg =
                  text msg.text.text
            ]
 
-view : Signal.Address Action -> Model -> Html
-view address model =
+view : Model -> Html Action
+view model =
     div [] ([ text "The original format is XML. Convert to JSON and paste here:"
             , br [] []
-            , textarea [ rows 10, cols 50, on "input" targetValue (ActUpdateJson >> Signal.message address) ] [ text model.json ]
+            , textarea [ rows 10, cols 50, onInput ActUpdateJson ] [ text model.json ]
             , br [] []
             , input [ type' "checkbox"
                     , checked model.ignore_msn_plus_name_tags
-                    , on "change" targetChecked (Signal.message address << ActUpdateChk1)
+                    , onCheck ActUpdateChk1
                     ] [], text "Ignore msn plus name tags"
             , br [] []
             , input [ type' "checkbox"
                     , checked model.remove_text_font
-                    , on "change" targetChecked (Signal.message address << ActUpdateChk2)
+                    , onCheck ActUpdateChk2
                     ] [], text "Remove font from messages"
             , br [] []
             , br [] []
@@ -103,12 +99,9 @@ view address model =
                 ]
             else [])
 
-main : Signal Html
 main =
-    let
-        mailbox : Signal.Mailbox Action
-        mailbox = Signal.mailbox ActNope
-        model_signal : Signal Model
-        model_signal = Signal.foldp (\action model -> update_messages <| update action model) initialModel mailbox.signal
-    in
-        Signal.map (view mailbox.address) model_signal
+    Html.App.program
+        { init          = Model [] ":D" True False ! []
+        , view          = view
+        , update        = update
+        , subscriptions = always Sub.none }
