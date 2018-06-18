@@ -1,5 +1,5 @@
 import Html            exposing (..)
-import Html.App        
+  
 import Html.Attributes exposing (..)
 import Html.Events     exposing (..)
 import Json.Decode     exposing (..)
@@ -35,29 +35,29 @@ update_messages model =
 decodeMsn : Decoder (List Message)
 decodeMsn =
     let
-        custom_text = object2 (\s t -> CustomText s (Maybe.withDefault "" t))
-                                         ( "_Style" := string )
-                                         ( maybe <| "__text" := string )
-        message     = object5 Message ( at ["From", "User", "_FriendlyName"] string )
+        custom_text = Json.Decode.map2 (\s t -> CustomText s (Maybe.withDefault "" t))
+                                         ( field "_Style" string )
+                                         ( maybe <| field "__text" string )
+        message     = Json.Decode.map5 Message ( at ["From", "User", "_FriendlyName"] string )
                                       ( at ["To",   "User", "_FriendlyName"] string )
-                                      ( "Text"  := custom_text )
-                                      ( "_Date" := string )
-                                      ( "_Time" := string )
+                                      (field "Text"   custom_text )
+                                      (field "_Date"  string )
+                                      (field "_Time"  string )
     in
         at ["Log", "Message"] (Json.Decode.list message)
 
 remove_tags : String -> String
 remove_tags str =
     let
-        removeTags' : String -> Bool -> String
-        removeTags' str add =
+        removeTags_ : String -> Bool -> String
+        removeTags_ str add =
             case uncons str of
-                Just ('[', str) -> removeTags' str False
-                Just (']', str) -> removeTags' str True
-                Just (c, str)   -> (fromList (if add then [c] else [])) ++ removeTags' str add
+                Just ('[', str) -> removeTags_ str False
+                Just (']', str) -> removeTags_ str True
+                Just (c, str)   -> (fromList (if add then [c] else [])) ++ removeTags_ str add
                 Nothing         -> ""
     in
-        removeTags' str True
+        removeTags_ str True
 
 msg_to_div : Bool -> Bool -> Message -> Html Action
 msg_to_div remove_tag remove_font msg =
@@ -76,12 +76,12 @@ view model =
             , br [] []
             , textarea [ rows 10, cols 50, onInput ActUpdateJson ] [ text model.json ]
             , br [] []
-            , input [ type' "checkbox"
+            , input [ type_ "checkbox"
                     , checked model.ignore_msn_plus_name_tags
                     , onCheck ActUpdateChk1
                     ] [], text "Ignore msn plus name tags"
             , br [] []
-            , input [ type' "checkbox"
+            , input [ type_ "checkbox"
                     , checked model.remove_text_font
                     , onCheck ActUpdateChk2
                     ] [], text "Remove font from messages"
@@ -100,7 +100,7 @@ view model =
             else [])
 
 main =
-    Html.App.program
+    Html.program
         { init          = Model [] ":D" True False ! []
         , view          = view
         , update        = update
